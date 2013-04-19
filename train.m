@@ -140,7 +140,7 @@ for i = 1:numpos
     feat = features(im(:,end:-1:1,:), model.sbin);    
     feat(:,1:width2,:) = feat(:,1:width2,:) + flipfeat(feat(:,width1+1:end,:));
     feat = feat(:,1:width1,:);
-    fwrite(fid, [1 2*i 0 0 0 2 dim], 'int32');
+    fwrite(fid, [1 2*i 0 0 0 2 dim], 'int32');    
     fwrite(fid, [oblocklabel 1], 'single');
     fwrite(fid, rblocklabel, 'single');
     fwrite(fid, feat, 'single');
