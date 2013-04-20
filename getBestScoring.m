@@ -1,4 +1,4 @@
-function boxes= getBestScoringBox(name, model, c,pos)
+function boxes= getBestScoringBox(name, model, c,pos,saveDir)
 % bestScoringIm = getBestScoring(name, model, c, pos)
 % construct positive cropped image from window that scores the best with 
 % trained root parameteres (i.e. where F.G is max where Fo are root weights
@@ -61,6 +61,7 @@ boxes=[];
             boxes(i).x2 = pos(i).x2;
             boxes(i).y2 = pos(i).y2;           
         end
+        save([cachedir name '_train_latentPosExamples'], 'boxes');
     end
     %save([cachedir cls '_train'], 'pos_latentRoot');
 end

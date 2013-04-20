@@ -39,8 +39,11 @@ end
 %catch
   numparts=6;
   model_dpm = initialize_parts(model,numparts);
-  name = [class 'dpm'];
+  name = [class '_dpm']; 
   model_dpm=train_dpm(name, cachedir, model_dpm, pos);
+  %newPos = load([cachedir name '_train_latentPosExamples']);
+  %model_dpm=train_dpm(name, cachedir, model_dpm, newPos);
+ 
   %model_pdm = train_pdm(cls, model_pdm, pos, neg,0,1); %train_dpm
   %save([cachedir cls '_randDPM'], 'model');
 %end

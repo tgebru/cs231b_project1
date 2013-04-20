@@ -59,7 +59,7 @@ if (latentPositives)
       load([cachedir name '_train_latentPos'], 'latentPosRoot');
       num = poswarp(name, model, 1, latentPos, fid);
     catch
-      latentPosRoot = getBestScoring(name, model, 1, pos);
+      latentPosRoot = getBestScoring(name, model, 1, pos,[cachedir name '_train_latentPosExamples'] );
       save([cachedir name '_train_latentPos'], 'latentPosRoot');
       num = poswarp(name, model, 1, latentPosRoot, fid);
     end
