@@ -39,7 +39,7 @@ end
 %catch
   numparts=6;
   model_dpm = initialize_parts(model,numparts);
-  name = [class '_dpm']; 
+  name = [cls '_dpm']; 
   model_dpm=train_dpm(name, cachedir, model_dpm, pos);
   %newPos = load([cachedir name '_train_latentPosExamples']);
   %model_dpm=train_dpm(name, cachedir, model_dpm, newPos);
