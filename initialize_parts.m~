@@ -1,0 +1,174 @@
+function model=initialize_parts(model,numparts)
+
+% model.partfilters{i}
+%   .size
+%   .w
+%   .blocklabel
+%   .partner & the index of the part which is symmetric to this one
+% model.defs{i}
+%    .blocklabel
+%    .w = ai and bi should be 4 numbers
+% model.components{1}.parts{i}
+%    .partindex = [x,y,part_size, x_yprime,x_yprime.^2]; 
+%               x & y located from root in terms of #of hog bins
+%               x_yprime and x_yprime are the x&y primes of the equation
+%    .blocksizes= [4 4*h*w*31]
+
+ridx = model.components{1}.rootindex;
+model_size = model.rootfilters{ridx}.size;
+
+%Part area (6a=0.8*root filter area)
+part_area = 0.8*prod(model_size*model.sbin)/6;
+aspect = model_size(1)/model_size(2);
+w_area = sqrt(part_area/aspect);
+h_area = w_area*aspect;
+h=round(h_area/model.sbin);
+w=round(w_area/model.sbin);
+
+%Change some model parameters
+model.numparts = numparts;
+model.numblocks = 2*(numparts+1);
+model.components{1}.numblocks= 2*(numparts+1);
+
+part_size = [h w];
+%model weights to be zeroed at the location of the part filters
+zeroed_model = model.rootfilters{1}.w;
+zeroed_model(find(zeroed_model<0))=0; %only care about non zero weights
+
+%flip root to search for maxima in its symmetric space (this may not be
+%necessary)
+ width1 = ceil(model_size(2)/2);
+ width2 = floor(model_size(2)/2);
+ 
+ %half part size
+ %w1 = floor(part_size(2)/2);
+ w2 = ceil(part_size(2)/2);
+ h2 = ceil(part_size(1)/2);
+     
+ %Flip half of the weights to look for maxima in here. Then we don't have to check if 
+ %each part has a corresponding partner. 
+ zeroed_model(:,width1+1:end,:) = flipfeat(zeroed_model(:,1:width2,:));
+    
+curPart=1;
+for i=1:numparts
+    %curPart
+    [x,y,hasPartner]=findHighestEnergy(zeroed_model,model_size,part_size);
+    vi = [x+w2 y-h2];%center coordinates of the box to use for xprime and yprime
+    x_yprime=([x y]-2.*[x y]+vi)./part_size; %xprime yprime in the scoring function
+  
+    model.components{1}.parts{curPart}.partindex = [x,y,part_size, x_yprime,x_yprime.^2]; %x & y located from root in terms of #of hog bins
+    model.partfilters{curPart}.size=part_size;
+    model.partfilters{curPart}.blocklabel=2*curPart+2;
+    %width = ceil(model.partfilters{curPart}.size(2)/2);    %get half of the weights
+    %model.components{1}.parts{curPart}.blocksizes(2)=4*w*h*31; %check if this is right?means we only learn half the weights
+    if (hasPartner==0)
+        %symmetric part
+        model.partfilters{curPart}.partner=0;
+        model.blocksizes(2*curPart+2)=2*w*h*31;              
+    else
+        model.blocksizes(2*curPart+2)=4*w*h*31;
+    end
+    %Iniialize part weights
+    part_weight_dim = [2*part_size(1) 2*part_size(2) 31];
+    model.partfilters{curPart}.w= zeros(part_weight_dim);
+    root_weights = subarray(model.rootfilters{1}.w, y, y+h-1, x, x+w-1, 0);
+    w_part= interp(root_weights(:),4);
+    w_part_reshaped=reshape(w_part, part_weight_dim);
+    model.partfilters{curPart}.w=w_part_reshaped;
+        
+    model.lowerbounds{2*curPart+2}=-100*ones(model.blocksizes(2*curPart+2),1);    
+    model.defs{curPart}.w=[0 0 -1 -1];
+    model.components{1}.parts{curPart}.sbin = 0.5*model.sbin;
+    model.regmult=[model.regmult,1,1];  
+    model.learnmult=[model.learnmult,1,1];
+    %model.components{1}.parts{curPart}.blocksizes(1)=size(model.defs{curPart},2);
+    model.defs{curPart}.blocklabel=2*curPart+1;
+    model.blocksizes(2*curPart+1)=size(model.defs{curPart}.w,2);
+    model.lowerbounds{2*curPart+1}=-100*ones(model.blocksizes(2*curPart+1),1);
+    
+    %Zero out the parts of the weights that have parts in them
+    zeroed_model(y:y+h-1, x:x+w-1)=0;
+    
+
+    %Initialize partner
+     if (hasPartner==1)
+        model.partfilters{curPart}.partner=curPart+1; %update the partner of the part
+        
+        curPart=curPart+1;%next part
+        %Just copy everything from previous block only the weights are
+        %different because they're flipped    
+        x_flipped=model_size(2)-x+w;
+        model.partfilters{curPart}.partner=curPart-1;
+
+        vi = [x_flipped+w2 y-h2];%center coordinates of the box to use for xprime and yprime
+        x_yprime=([x_flipped y]-2.*[x_flipped y]+vi)./part_size; %xprime yprime in the scoring function
+  
+        model.components{1}.parts{curPart}.partindex = [x_flipped,y,part_size, x_yprime,x_yprime.^2]; %x & y located relative to root
+        model.partfilters{curPart}.size=part_size;
+        model.partfilters{curPart}.blocklabel=2*curPart+2;
+        %width = ceil(model.partfilters{curPart}.size(2)/2);    
+        %model.components{1}.parts{curPart}.blocksizes(2)=4*w*h*31; %check if this is right?If the root is self seymmetric we're supposed to only learn half the weights
+        model.blocksizes(2*curPart+2)=4*w*h*31;
+        model.lowerbounds{2*curPart+2}=-100*ones(model.blocksizes(2*curPart+2),1);
+    
+        model.defs{curPart}.w=[0 0 -1 -1];
+        model.components{1}.parts{curPart}.sbin = 0.5*model.sbin;
+        model.regmult=[model.regmult,1,1];  
+        model.learnmult=[model.learnmult,1,1];
+        %model.components{1}.parts{curPart}.blocksizes(1)=size(model.defs{curPart},2);
+        model.defs{curPart}.blocklabel=2*curPart+1;
+        model.blocksizes(2*curPart+1)=size(model.defs{curPart}.w,2);
+        model.lowerbounds{2*curPart+1}=-100*ones(model.blocksizes(2*curPart+1),1);
+ 
+        %Iniialize part weights (flip partner's weights)
+        model.partfilters{curPart}.w=flipfeat(w_part_reshaped); 
+        
+        %Zero out the weights on the symmetric side
+        zeroed_model(y:y+h-1, x_flipped:x_flipped+w-1)=0;
+     end
+    if (curPart==numparts)
+        break;
+    end
+    curPart=curPart+1;
+end
+
+%Update model dimensions(number of parameters we have to learn (I don't
+%know where 2 came from. It was in the modelinit file. 
+model.components{1}.dim = 2 + sum(model.blocksizes); 
+
+function [xp,yp,partner]=findHighestEnergy(model_w,model_size,part_size)    
+    h=part_size(1);
+    w=part_size(2);
+    
+    x_limit = model_size(2)-w;
+    y_limit = model_size(1)-h;
+    model_width_half=ceil(model_size(2)/2);
+    
+    %sizes to check weather part is self symmetric
+    width2 = ceil(w/2);
+    %w_model2=ceil(model_w/2);
+    partner=0;
+    max_energy = 0;
+    
+    %Search for maxima
+    for y=1:h:y_limit
+        for x=1:x_limit
+            window = subarray(model_w, y, y+h-1, x, x+w-1, 0);
+            energy = sum(sum(sum(abs(window).^2))).^(0.5); %change to norm but for some reason error with 3d matricies
+            if energy>max_energy
+                %If its self symmetric partner=0
+                %Is selef symmetric if xp+wdith2 is same as width/2 of root
+                %filter, meaning it is in the middle
+                max_energy=energy;
+                xp=x;
+                yp=y;
+                if (xp+width2==model_width_half)
+                    partner=0;
+                else
+                    partner=1;
+                end
+            end
+        end
+    end
+
+
