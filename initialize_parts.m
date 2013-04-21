@@ -27,6 +27,7 @@ w=round(w_area/model.sbin);
 
 %Change some model parameters
 model.numparts = numparts;
+model.numblocks = 2*(numparts+1);
 model.components{1}.numblocks= 2*(numparts+1);
 
 part_size = [h w];
@@ -58,6 +59,7 @@ for i=1:numparts
     model.components{1}.parts{curPart}.partindex = [x,y,part_size, x_yprime,x_yprime.^2]; %x & y located from root in terms of #of hog bins
     model.partfilters{curPart}.size=part_size;
     model.partfilters{curPart}.blocklabel=2*curPart+2;
+    model.partfilters{curPart}.fake=0;
     %width = ceil(model.partfilters{curPart}.size(2)/2);    %get half of the weights
     %model.components{1}.parts{curPart}.blocksizes(2)=4*w*h*31; %check if this is right?means we only learn half the weights
     if (hasPartner==0)
@@ -78,10 +80,8 @@ for i=1:numparts
     model.lowerbounds{2*curPart+2}=-100*ones(model.blocksizes(2*curPart+2),1);    
     model.defs{curPart}.w=[0 0 -1 -1];
     model.components{1}.parts{curPart}.sbin = 0.5*model.sbin;
-    model.components{1}.parts{curPart}.regmult(1)=1;
-    model.components{1}.parts{curPart}.regmult(2)=1;
-    model.components{1}.parts{curPart}.learnmult(1)=1;
-    model.components{1}.parts{curPart}.learnmult(2)=1;
+    model.regmult=[model.regmult,1,1];  
+    model.learnmult=[model.learnmult,1,1];
     %model.components{1}.parts{curPart}.blocksizes(1)=size(model.defs{curPart},2);
     model.defs{curPart}.blocklabel=2*curPart+1;
     model.blocksizes(2*curPart+1)=size(model.defs{curPart}.w,2);
@@ -100,6 +100,7 @@ for i=1:numparts
         %different because they're flipped    
         x_flipped=model_size(2)-x+w;
         model.partfilters{curPart}.partner=curPart-1;
+        model.partfilters{curPart}.fake=1;
 
         vi = [x_flipped+w2 y-h2];%center coordinates of the box to use for xprime and yprime
         x_yprime=([x_flipped y]-2.*[x_flipped y]+vi)./part_size; %xprime yprime in the scoring function
@@ -114,10 +115,8 @@ for i=1:numparts
     
         model.defs{curPart}.w=[0 0 -1 -1];
         model.components{1}.parts{curPart}.sbin = 0.5*model.sbin;
-        model.components{1}.parts{curPart}.regmult(1)=1;
-        model.components{1}.parts{curPart}.regmult(2)=1;
-        model.components{1}.parts{curPart}.learnmult(1)=1;
-        model.components{1}.parts{curPart}.learnmult(2)=1;
+        model.regmult=[model.regmult,1,1];  
+        model.learnmult=[model.learnmult,1,1];
         %model.components{1}.parts{curPart}.blocksizes(1)=size(model.defs{curPart},2);
         model.defs{curPart}.blocklabel=2*curPart+1;
         model.blocksizes(2*curPart+1)=size(model.defs{curPart}.w,2);
@@ -137,7 +136,7 @@ end
 
 %Update model dimensions(number of parameters we have to learn (I don't
 %know where 2 came from. It was in the modelinit file. 
-model.components{1}.dim = 2 + sum(model.blocksizes); 
+model.components{1}.dim = model.numblocks + sum(model.blocksizes); 
 
 function [xp,yp,partner]=findHighestEnergy(model_w,model_size,part_size)    
     h=part_size(1);
