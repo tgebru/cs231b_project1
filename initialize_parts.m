@@ -9,7 +9,9 @@ function model=initialize_parts(model,numparts)
 %    .blocklabel
 %    .w = ai and bi should be 4 numbers
 % model.components{1}.parts{i}
-%    .partindex = x,y, partsize
+%    .partindex = [x,y,part_size, x_yprime,x_yprime.^2]; 
+%               x & y located from root in terms of #of hog bins
+%               x_yprime and x_yprime are the x&y primes of the equation
 %    .blocksizes= [4 4*h*w*31]
 
 ridx = model.components{1}.rootindex;
@@ -41,9 +43,10 @@ zeroed_model(find(zeroed_model<0))=0; %only care about non zero weights
  %w1 = floor(part_size(2)/2);
  w2 = ceil(part_size(2)/2);
  h2 = ceil(part_size(1)/2);
-   
- model_half_w = zeroed_model(:,1:width1,:);
- zeroed_model(:,width1+1:end,:) = flipfeat(model_half_w(:,1:width2,:));
+     
+ %Flip half of the weights to look for maxima in here. Then we don't have to check if 
+ %each part has a corresponding partner. 
+ zeroed_model(:,width1+1:end,:) = flipfeat(zeroed_model(:,1:width2,:));
     
 curPart=1;
 for i=1:numparts
@@ -55,12 +58,12 @@ for i=1:numparts
     vi = [x+w2 y-h2];%center coordinates of the box to use for xprime and yprime
     x_yprime=([x y]-2.*[x y]+vi)./part_size; %xprime yprime in the scoring function
   
-    model.components{1}.parts{curPart}.partindex = [x,y,part_size, x_yprime,x_yprime.^2]; %x & y located from root
+    model.components{1}.parts{curPart}.partindex = [x,y,part_size, x_yprime,x_yprime.^2]; %x & y located from root in terms of #of hog bins
     model.partfilters{curPart}.size=part_size;
     model.partfilters{curPart}.blocklabel=2*curPart+2;
     %width = ceil(model.partfilters{curPart}.size(2)/2);    %get half of the weights
     model.components{1}.parts{curPart}.blocksizes(2)=4*w*h*31; %check if this is right?means we only learn half the weights
-    model.lowerbounds{2*curPart+2}=-100*ones(model.components{1}.parts{curPart}.blocksizes(1),1);
+    model.lowerbounds{2*curPart+2}=-100*ones(model.components{1}.parts{curPart}.blocksizes(2),1);
     
     model.defs{curPart}.w=[0 0 -1 -1];
     model.components{1}.parts{curPart}.sbin = 0.5*model.sbin;
@@ -70,7 +73,7 @@ for i=1:numparts
     model.components{1}.parts{curPart}.learnmult(2)=1;
     model.components{1}.parts{curPart}.blocksizes(1)=size(model.defs{curPart},2);
     model.defs{curPart}.blocklabel=2*curPart+1;
-    model.lowerbounds{2*curPart+1}=-100*ones(model.components{1}.parts{curPart}.blocksizes(2),1);
+    model.lowerbounds{2*curPart+1}=-100*ones(model.components{1}.parts{curPart}.blocksizes(1),1);
 
     %Iniialize part weights
     part_weight_dim = [2*part_size(1) 2*part_size(2) 31];
@@ -79,19 +82,10 @@ for i=1:numparts
     w_part= interp(root_weights(:),4);
     w_part_reshaped=reshape(w_part, part_weight_dim);
     
- %{  
-    %Don't think I need this cause part coming back should be symmetric
-    if (hasPartner==0)
-        %model.partfilters{curPart}.w(:,1:width1,:) = f;
-        %model.partfilters{curPart}.w(:,width1+1:end,:)= flipfeat(f(:,1:width2,:)); %do flipping of features here
-        width1 = ceil(w/2);
-        width2 = floor(h/2);
-        f=w_part_reshaped(:,1:width1,:);
-        model.partfilters{curPart}.w(:,1:width1,:) = f;
-        model.partfilters{curPart}.w(:,width1+1:end,:) = flipfeat(f(:,1:width2,:));
-        model.partfilters{curPart}.w=w_part_reshaped;
-    end
- %}   
+    %Zero out the parts of the weights that have parts in them
+    zeroed_model(y:y+h-1, x:x+w-1)=0;
+    
+
     %Initialize partner
      if (hasPartner==1)
         model.partfilters{curPart}.partner=curPart+1; %update the partner of the part
@@ -103,14 +97,14 @@ for i=1:numparts
         model.partfilters{curPart}.partner=curPart-1;
 
         vi = [x_flipped+w2 y-h2];%center coordinates of the box to use for xprime and yprime
-        x_yprime=([x_flipped y]-2.*[x_fkuooed y]+vi)./part_size; %xprime yprime in the scoring function
+        x_yprime=([x_flipped y]-2.*[x_flipped y]+vi)./part_size; %xprime yprime in the scoring function
   
         model.components{1}.parts{curPart}.partindex = [x_flipped,y,part_size, x_yprime,x_yprime.^2]; %x & y located relative to root
         model.partfilters{curPart}.size=part_size;
         model.partfilters{curPart}.blocklabel=2*curPart+2;
         %width = ceil(model.partfilters{curPart}.size(2)/2);    
         model.components{1}.parts{curPart}.blocksizes(2)=4*w*h*31; %check if this is right?If the root is self seymmetric we're supposed to only learn half the weights
-        model.lowerbounds{2*curPart+2}=-100*ones(model.components{1}.parts{curPart}.blocksizes(1),1);
+        model.lowerbounds{2*curPart+2}=-100*ones(model.components{1}.parts{curPart}.blocksizes(2),1);
     
         model.defs{curPart}.w=[0 0 -1 -1];
         model.components{1}.parts{curPart}.sbin = 0.5*model.sbin;
@@ -120,10 +114,13 @@ for i=1:numparts
         model.components{1}.parts{curPart}.learnmult(2)=1;
         model.components{1}.parts{curPart}.blocksizes(1)=size(model.defs{curPart},2);
         model.defs{curPart}.blocklabel=2*curPart+1;
-        model.lowerbounds{2*curPart+1}=-100*ones(model.components{1}.parts{curPart}.blocksizes(2),1);
+        model.lowerbounds{2*curPart+1}=-100*ones(model.components{1}.parts{curPart}.blocksizes(1),1);
  
         %Iniialize part weights (flip partner's weights)
-        model.partfilters{curPart}.w=flipfeat(w_part_reshaped);      
+        model.partfilters{curPart}.w=flipfeat(w_part_reshaped); 
+        
+        %Zero out the weights on the symmetric side
+        zeroed_model(y:y+h-1, x_flipped:x_flipped+w-1)=0;
      end
     if (curPart==numparts)
         break;
@@ -147,7 +144,7 @@ function [xp,yp,partner]=findHighestEnergy(model_w,model_size,part_size)
     %sizes to check weather part is self symmetric
     width2 = ceil(w/2);
     %w_model2=ceil(model_w/2);
-    partner=1;
+    partner=0;
     max_energy = 0;
     
     %Search for maxima
@@ -164,6 +161,8 @@ function [xp,yp,partner]=findHighestEnergy(model_w,model_size,part_size)
                 yp=y;
                 if (xp+width2==model_width_half)
                     partner=0;
+                else
+                    partner=1;
                 end
             end
         end

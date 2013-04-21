@@ -17,7 +17,7 @@ for i = 1:numpos
     fprintf('%s: warp: %d/%d\n', name, i, numpos);
   end
   im = color(imread(pos(i).im));
-  padx = model.sbin * widths(i) / pixels(2);
+  padx = model.sbin * widths(i) / pixels(2); %why is this padding done? And why is it this number, model.sbin * widths(i) / pixels(2)?
   pady = model.sbin * heights(i) / pixels(1);
   x1 = round(pos(i).x1-padx);
   x2 = round(pos(i).x2+padx);
