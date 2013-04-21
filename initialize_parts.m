@@ -50,11 +50,8 @@ zeroed_model(find(zeroed_model<0))=0; %only care about non zero weights
     
 curPart=1;
 for i=1:numparts
-    curPart
+    %curPart
     [x,y,hasPartner]=findHighestEnergy(zeroed_model,model_size,part_size);
-    if (hasPartner==0)
-        model.partfilters{curPart}.partner=0;
-    end
     vi = [x+w2 y-h2];%center coordinates of the box to use for xprime and yprime
     x_yprime=([x y]-2.*[x y]+vi)./part_size; %xprime yprime in the scoring function
   
@@ -62,25 +59,33 @@ for i=1:numparts
     model.partfilters{curPart}.size=part_size;
     model.partfilters{curPart}.blocklabel=2*curPart+2;
     %width = ceil(model.partfilters{curPart}.size(2)/2);    %get half of the weights
-    model.components{1}.parts{curPart}.blocksizes(2)=4*w*h*31; %check if this is right?means we only learn half the weights
-    model.lowerbounds{2*curPart+2}=-100*ones(model.components{1}.parts{curPart}.blocksizes(2),1);
-    
-    model.defs{curPart}.w=[0 0 -1 -1];
-    model.components{1}.parts{curPart}.sbin = 0.5*model.sbin;
-    model.components{1}.parts{curPart}.regmult(1)=1;
-    model.components{1}.parts{curPart}.regmult(2)=1;
-    model.components{1}.parts{curPart}.learnmult(1)=1;
-    model.components{1}.parts{curPart}.learnmult(2)=1;
-    model.components{1}.parts{curPart}.blocksizes(1)=size(model.defs{curPart},2);
-    model.defs{curPart}.blocklabel=2*curPart+1;
-    model.lowerbounds{2*curPart+1}=-100*ones(model.components{1}.parts{curPart}.blocksizes(1),1);
-
+    %model.components{1}.parts{curPart}.blocksizes(2)=4*w*h*31; %check if this is right?means we only learn half the weights
+    if (hasPartner==0)
+        %symmetric part
+        model.partfilters{curPart}.partner=0;
+        model.blocksizes(2*curPart+2)=2*w*h*31;              
+    else
+        model.blocksizes(2*curPart+2)=4*w*h*31;
+    end
     %Iniialize part weights
     part_weight_dim = [2*part_size(1) 2*part_size(2) 31];
     model.partfilters{curPart}.w= zeros(part_weight_dim);
     root_weights = subarray(model.rootfilters{1}.w, y, y+h-1, x, x+w-1, 0);
     w_part= interp(root_weights(:),4);
     w_part_reshaped=reshape(w_part, part_weight_dim);
+    model.partfilters{curPart}.w=w_part_reshaped;
+        
+    model.lowerbounds{2*curPart+2}=-100*ones(model.blocksizes(2*curPart+2),1);    
+    model.defs{curPart}.w=[0 0 -1 -1];
+    model.components{1}.parts{curPart}.sbin = 0.5*model.sbin;
+    model.components{1}.parts{curPart}.regmult(1)=1;
+    model.components{1}.parts{curPart}.regmult(2)=1;
+    model.components{1}.parts{curPart}.learnmult(1)=1;
+    model.components{1}.parts{curPart}.learnmult(2)=1;
+    %model.components{1}.parts{curPart}.blocksizes(1)=size(model.defs{curPart},2);
+    model.defs{curPart}.blocklabel=2*curPart+1;
+    model.blocksizes(2*curPart+1)=size(model.defs{curPart}.w,2);
+    model.lowerbounds{2*curPart+1}=-100*ones(model.blocksizes(2*curPart+1),1);
     
     %Zero out the parts of the weights that have parts in them
     zeroed_model(y:y+h-1, x:x+w-1)=0;
@@ -103,8 +108,9 @@ for i=1:numparts
         model.partfilters{curPart}.size=part_size;
         model.partfilters{curPart}.blocklabel=2*curPart+2;
         %width = ceil(model.partfilters{curPart}.size(2)/2);    
-        model.components{1}.parts{curPart}.blocksizes(2)=4*w*h*31; %check if this is right?If the root is self seymmetric we're supposed to only learn half the weights
-        model.lowerbounds{2*curPart+2}=-100*ones(model.components{1}.parts{curPart}.blocksizes(2),1);
+        %model.components{1}.parts{curPart}.blocksizes(2)=4*w*h*31; %check if this is right?If the root is self seymmetric we're supposed to only learn half the weights
+        model.blocksizes(2*curPart+2)=4*w*h*31;
+        model.lowerbounds{2*curPart+2}=-100*ones(model.blocksizes(2*curPart+2),1);
     
         model.defs{curPart}.w=[0 0 -1 -1];
         model.components{1}.parts{curPart}.sbin = 0.5*model.sbin;
@@ -112,9 +118,10 @@ for i=1:numparts
         model.components{1}.parts{curPart}.regmult(2)=1;
         model.components{1}.parts{curPart}.learnmult(1)=1;
         model.components{1}.parts{curPart}.learnmult(2)=1;
-        model.components{1}.parts{curPart}.blocksizes(1)=size(model.defs{curPart},2);
+        %model.components{1}.parts{curPart}.blocksizes(1)=size(model.defs{curPart},2);
         model.defs{curPart}.blocklabel=2*curPart+1;
-        model.lowerbounds{2*curPart+1}=-100*ones(model.components{1}.parts{curPart}.blocksizes(1),1);
+        model.blocksizes(2*curPart+1)=size(model.defs{curPart}.w,2);
+        model.lowerbounds{2*curPart+1}=-100*ones(model.blocksizes(2*curPart+1),1);
  
         %Iniialize part weights (flip partner's weights)
         model.partfilters{curPart}.w=flipfeat(w_part_reshaped); 
@@ -130,8 +137,7 @@ end
 
 %Update model dimensions(number of parameters we have to learn (I don't
 %know where 2 came from. It was in the modelinit file. 
-model.components{1}.dim = 2 + model.blocksizes(1) + model.blocksizes(2)+model.numparts*...
-(model.components{1}.parts{curPart}.blocksizes(1)+model.components{1}.parts{curPart}.blocksizes(2));
+model.components{1}.dim = 2 + sum(model.blocksizes); 
 
 function [xp,yp,partner]=findHighestEnergy(model_w,model_size,part_size)    
     h=part_size(1);
