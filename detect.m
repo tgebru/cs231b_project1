@@ -42,6 +42,7 @@ pady = ceil(model.maxsize(1)/2+1);
 interval = model.interval;
 [feat, scales] = featpyramid(input, model.sbin, interval);
 
+
 % detect at each scale
 best = -inf;
 ex = [];
@@ -90,4 +91,7 @@ x1 = (x-padx)*scale+1;
 y1 = (y-pady)*scale+1;
 x2 = x1 + rsize(2)*scale - 1;
 y2 = y1 + rsize(1)*scale - 1;
+
+
+
 

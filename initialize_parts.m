@@ -47,7 +47,11 @@ zeroed_model(find(zeroed_model<0))=0; %only care about non zero weights
      
  %Flip half of the weights to look for maxima in here. Then we don't have to check if 
  %each part has a corresponding partner. 
- zeroed_model(:,width1+1:end,:) = flipfeat(zeroed_model(:,1:width2,:));
+ %zeroed_model(:,width1+1:end,:) =flipfeat(zeroed_model(:,1:width2,:));
+ 
+ %Try just taking first half of zeroed_model and flipping it
+ %instead of using flipfeat
+ %zeroed_model(:,end:-1:width1+1,:) = zeroed_model(:,1:width2,:);
     
 curPart=1;
 for i=1:numparts
@@ -72,13 +76,13 @@ for i=1:numparts
     %Iniialize part weights
     part_weight_dim = [2*part_size(1) 2*part_size(2) 31];
     model.partfilters{curPart}.w= zeros(part_weight_dim);
-    root_weights = subarray(model.rootfilters{1}.w, y, y+h-1, x, x+w-1, 0);
+    root_weights = subarray(model.rootfilters{1}.w, y+1, y+h, x+1, x+w, 0);
     w_part= interp(root_weights(:),4);
     w_part_reshaped=reshape(w_part, part_weight_dim);
     model.partfilters{curPart}.w=w_part_reshaped;
         
     model.lowerbounds{2*curPart+2}=-100*ones(model.blocksizes(2*curPart+2),1);    
-    model.defs{curPart}.w=[0 0 -1 -1];
+    model.defs{curPart}.w=[0 0 -1 -1]; 
     model.components{1}.parts{curPart}.sbin = 0.5*model.sbin;
     model.regmult=[model.regmult,1,1];  
     model.learnmult=[model.learnmult,1,1];
@@ -88,7 +92,7 @@ for i=1:numparts
     model.lowerbounds{2*curPart+1}=-100*ones(model.blocksizes(2*curPart+1),1);
     
     %Zero out the parts of the weights that have parts in them
-    zeroed_model(y:y+h-1, x:x+w-1)=0;
+    zeroed_model(y+1:y+h, x+1:x+w,:)=0;
     
 
     %Initialize partner
@@ -98,7 +102,7 @@ for i=1:numparts
         curPart=curPart+1;%next part
         %Just copy everything from previous block only the weights are
         %different because they're flipped    
-        x_flipped=model_size(2)-x+w;
+        x_flipped=model_size(2)-(x+w);
         model.partfilters{curPart}.partner=curPart-1;
         model.partfilters{curPart}.fake=1;
 
@@ -123,10 +127,17 @@ for i=1:numparts
         model.lowerbounds{2*curPart+1}=-100*ones(model.blocksizes(2*curPart+1),1);
  
         %Iniialize part weights (flip partner's weights)
-        model.partfilters{curPart}.w=flipfeat(w_part_reshaped); 
+        %model.partfilters{curPart}.w=flipfeat(w_part_reshaped); Not sure
+        %which is the right way but just get weights from root for now
+        
+        %Iniialize part weights
+        root_weights = subarray(model.rootfilters{1}.w, y+1, y+h, x_flipped+1, x_flipped+w, 0);
+        w_part_sym= interp(root_weights(:),4);
+        w_part_sym_reshaped=reshape(w_part_sym, part_weight_dim);
+        model.partfilters{curPart}.w= w_part_sym_reshaped;
         
         %Zero out the weights on the symmetric side
-        zeroed_model(y:y+h-1, x_flipped:x_flipped+w-1)=0;
+        zeroed_model(y+1:y+h, x_flipped+1:x_flipped+w,:)=0;
      end
     if (curPart==numparts)
         break;
@@ -151,11 +162,13 @@ function [xp,yp,partner]=findHighestEnergy(model_w,model_size,part_size)
     %w_model2=ceil(model_w/2);
     partner=0;
     max_energy = 0;
+    rectangle('Position', [0 0 5 9], 'EdgeColor', 'r');
     
     %Search for maxima
-    for y=1:h:y_limit
-        for x=1:x_limit
-            window = subarray(model_w, y, y+h-1, x, x+w-1, 0);
+    for y=0:h:y_limit
+        for x=0:x_limit
+            window = subarray(model_w, y+1, y+h, x+1, x+w, 0);
+            rectangle('Position', [x y w h]);
             energy = sum(sum(sum(abs(window).^2))).^(0.5); %change to norm but for some reason error with 3d matricies
             if energy>max_energy
                 %If its self symmetric partner=0

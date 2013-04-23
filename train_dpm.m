@@ -105,10 +105,18 @@ save([cachedir name '_model'], 'model');
 
 % get positive examples by warping positive bounding boxes
 % we create virtual examples by flipping each image left to right
-function num = poswarp(name, model, c, pos, fid) %model now has parts and pos is the new pos we learned (latent root filter bounding box)
+function num = poswarp(name, model, c, pos, cachedir, fid) %model now has parts and pos is the new pos we learned (latent root filter bounding box)
 numpos = length(pos);
-warped = warppos(name, model, c, pos);
-warped_parts = warpParts(name, model, c, pos);
+
+%Save warped so that we don't have to warp every time
+try
+  load([cachedir cls '_warped_dpm']);
+catch
+    warped = warppos(name, model, c, pos);
+    save([cachedir name '_warped_dpm'], 'warped');
+end
+
+warped_parts = warpParts(name, model, c, warped);%pos); %Just crop the warped root to size of parts
 ridx = model.components{c}.rootindex;
 oidx = model.components{c}.offsetindex;
 rblocklabel = model.rootfilters{ridx}.blocklabel;
@@ -150,7 +158,7 @@ for i = 1:numpos
         if model.partfilters{j}.fake
             continue;
         end
-             feat= features(warped_parts{i}{j}, 0.5*model.sbin+1);
+             feat= features(warped_parts{i}{j}, 0.5*model.sbin);
              partner=model.partfilters{j}.partner;
              if  partner==0
                 feat(:,1:partwidth,:) = feat(:,1:partwidth,:) + flipfeat(feat(:,partwidth+1:end,:));
@@ -191,7 +199,7 @@ for i = 1:numpos
         if model.partfilters{k}.fake
             continue;
         end
-            feat= features(warped_parts{i}{k}(:,end:-1:1,:),0.5*model.sbin+1);
+            feat= features(warped_parts{i}{k}(:,end:-1:1,:),0.5*model.sbin);
             partner=model.partfilters{k}.partner;
             if  partner==0
                 feat(:,1:partwidth,:) = feat(:,1:partwidth,:) + flipfeat(feat(:,partwidth+1:end,:));

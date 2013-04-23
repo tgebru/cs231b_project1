@@ -39,6 +39,15 @@ end
 %catch
   numparts=6;
   model_dpm = initialize_parts(model,numparts);
+%{  
+  Show the number of rectagles
+  rectangle('Position', [0 0 5 9]);
+  for i=1:6
+      x=model_dpm.components{1}.parts{i}.partindex(1);
+      y=model_dpm.components{1}.parts{i}.partindex(2);
+      rectangle('Position', [x 6-y 2 3])
+  end
+%}  
   name = [cls '_dpm']; 
   model_dpm=train_dpm(name, cachedir, model_dpm, pos);
   %newPos = load([cachedir name '_train_latentPosExamples']);
